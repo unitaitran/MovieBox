@@ -1,0 +1,101 @@
+{
+  "api": {
+    "baseUrl": "http://localhost:5000/api/v1",
+    "healthCheck": "http://localhost:5000/health",
+    "timeout": 10000,
+    "retryAttempts": 3
+  },
+  "endpoints": {
+    "movies": {
+      "getAll": "GET /movies",
+      "getById": "GET /movies/:id",
+      "getNowShowing": "GET /movies/now-showing",
+      "getComingSoon": "GET /movies/coming-soon",
+      "getByGenre": "GET /movies/genre/:genre",
+      "getByAgeLimit": "GET /movies/age-limit/:ageLimit",
+      "getByLanguage": "GET /movies/language/:language",
+      "getByDirector": "GET /movies/director/:director",
+      "getByCast": "GET /movies/cast/:castMember",
+      "search": "GET /movies/search?q=:query"
+    },
+    "auth": {
+      "register": "POST /auth/register",
+      "login": "POST /auth/login",
+      "logout": "POST /auth/logout",
+      "profile": "GET /auth/profile"
+    },
+    "bookings": {
+      "getAll": "GET /bookings",
+      "getById": "GET /bookings/:id",
+      "create": "POST /bookings",
+      "update": "PUT /bookings/:id",
+      "cancel": "DELETE /bookings/:id"
+    },
+  },
+  "cors": {
+    "enabled": true,
+    "origins": [
+      "http://localhost:3000",
+      "http://localhost:8081",
+      "http://localhost:8082",
+      "exp://192.168.190.4:8081",
+      "exp://192.168.190.4:8082",
+      "capacitor://localhost",
+      "ionic://localhost"
+    ],
+    "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    "headers": ["Content-Type", "Authorization", "Accept", "Origin", "X-Requested-With"]
+  },
+  "pagination": {
+    "defaultLimit": 20,
+    "maxLimit": 100,
+    "defaultPage": 1
+  },
+  "sorting": {
+    "options": ["title", "releaseDate", "rating"],
+    "default": "releaseDate"
+  },
+  "filters": {
+    "genres": ["Action", "Comedy", "Drama", "Horror", "Romance", "Thriller", "Sci-Fi", "Fantasy", "Adventure", "Animation"],
+    "languages": ["English", "Spanish", "French", "Chinese", "Japanese"],
+    "ageLimits": [0, 6, 13, 16, 18],
+    "statuses": ["coming-soon", "now-showing", "ended"]
+  },
+  "responseFormat": {
+    "success": {
+      "success": true,
+      "data": "object|array",
+      "message": "string",
+      "pagination": {
+        "page": "number",
+        "limit": "number",
+        "total": "number",
+        "pages": "number"
+      }
+    },
+    "error": {
+      "success": false,
+      "message": "string",
+      "error": "object|null",
+      "timestamp": "string"
+    }
+  },
+  "mobileOptimizations": {
+    "imageSizes": {
+      "poster": {
+        "small": "200x300",
+        "medium": "300x450",
+        "large": "400x600"
+      }
+    },
+    "caching": {
+      "movies": "5 minutes",
+      "genres": "1 hour",
+      "cinemas": "30 minutes"
+    },
+    "offlineSupport": {
+      "enabled": true,
+      "cacheKeys": ["movies", "genres", "user_profile"]
+    }
+  }
+}
