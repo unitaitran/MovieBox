@@ -12,6 +12,7 @@ const authRoutes = require('./routes/auth.routes');
 const movieRoutes = require('./routes/movie.routes');
 const bookingRoutes = require('./routes/booking.routes');
 const cinemaRoutes = require('./routes/cinema.routes');
+const showtimeRoutes = require('./routes/showtime.routes'); // Thêm route cho showtime
 
 const app = express();
 
@@ -27,8 +28,8 @@ app.use(cors({
     'http://localhost:3000', // React app
     'http://localhost:8081', // Expo dev server
     'http://localhost:8082', // Expo dev server (port khác)
-    'exp://10.33.65.166:8081', // Expo mobile URL
-    'exp://10.33.65.166:8082', // Expo mobile URL
+    'exp://localhost:8081', // Expo mobile URL
+    'exp://localhost:8082', // Expo mobile URL
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -65,6 +66,16 @@ app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/movies', movieRoutes);
 app.use('/api/v1/bookings', bookingRoutes);
 app.use('/api/v1/cinemas', cinemaRoutes);
+app.use('/api/v1/showtimes', showtimeRoutes);
+
+// // Debug log for registered routes
+// console.log('Routes registered:', {
+//   auth: '/api/v1/auth',
+//   movies: '/api/v1/movies',
+//   bookings: '/api/v1/bookings',
+//   cinemas: '/api/v1/cinemas',
+//   showtimes: '/api/v1/showtimes'
+// });
 
 // Welcome route
 app.get('/', (req, res) => {
@@ -75,12 +86,15 @@ app.get('/', (req, res) => {
       auth: '/api/v1/auth',
       movies: '/api/v1/movies',
       bookings: '/api/v1/bookings',
+      cinemas: '/api/v1/cinemas',
+      showtimes: '/api/v1/showtimes'
     }
   });
 });
 
-// 404 handler
+// 404 handler with debug log
 app.use('*', (req, res) => {
+  console.log('404 Route not found:', req.originalUrl);
   res.status(404).json({
     status: 'error',
     message: `Route ${req.originalUrl} not found`

@@ -48,14 +48,63 @@ const getMovies = async (req, res, next) => {
 // @access  Public
 const getMovie = async (req, res, next) => {
   try {
-    const movie = await Movie.findById(req.params.id).populate('showtimes.cinemaId');
+    console.log('=== Debug getMovie Start ===');
+    const { id } = req.params;
+    
+    // Log tất cả movies để kiểm tra cấu trúc ID
+    console.log('Checking all movies in database...');
+    const allMovies = await Movie.find({}, '_id title').lean();
+    console.log('All movies:', allMovies.map(m => ({
+      id: m._id,
+      id_type: typeof m._id,
+      id_string: String(m._id),
+      title: m.title
+    })));
+    
+    console.log('Attempting to find movie with ID:', id);
+    console.log('ID type:', typeof id);
+    
+    // Try to find the movie using different methods
+    const movieByString = await Movie.findOne({ _id: id }).lean();
+    const movieByRegex = await Movie.findOne({ 
+      _id: { $regex: new RegExp(id, 'i') } 
+    }).lean();
+    
+    console.log('Search results:', {
+      byString: movieByString ? 'Found' : 'Not found',
+      byRegex: movieByRegex ? 'Found' : 'Not found'
+    });
+
+    const movie = movieByString || movieByRegex;
+    
+    if (!movie) {
+      console.log('Movie not found with any method');
+      return sendErrorResponse(res, 'Movie not found', 404);
+    }
+
+    // If found, get full details with population
+    const fullMovie = await Movie.findOne({ _id: movie._id })
+      .populate('showtimes.cinemaId')
+      .lean();
+
+    console.log('Full movie query result:', {
+      found: !!movie,
+      id: movie?._id,
+      title: movie?.title
+    });
 
     if (!movie) {
       return sendErrorResponse(res, 'Movie not found', 404);
     }
 
+    console.log('=== Debug getMovie Success ===');
     sendSuccessResponse(res, movie, 'Movie retrieved successfully');
   } catch (error) {
+    console.error('=== Debug getMovie Error ===');
+    console.error('Error type:', error.name);
+    console.error('Error message:', error.message);
+    console.error('Stack:', error.stack);
+    console.error('=== Debug getMovie Error End ===');
     next(error);
   }
 };
