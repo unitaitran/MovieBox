@@ -2,30 +2,52 @@ const mongoose = require('mongoose');
 
 const showtimeSchema = new mongoose.Schema({
   _id: {
-    type: String, // Sử dụng chuỗi nếu dữ liệu dùng "s001"
+    type: String,
     required: true,
   },
-  cinemaId: {
-    type: String, // Điều chỉnh thành String nếu dữ liệu dùng "c001"
+  cinema_id: {
+    type: String,
     ref: 'Cinema',
     required: [true, 'Cinema ID is required'],
   },
-  movieId: {
-    type: String, // Điều chỉnh thành String nếu dữ liệu dùng "68c38f7f5b66ee7381f38a79" là chuỗi
+  movie_id: {
+    type: String,
     ref: 'Movie',
     required: [true, 'Movie ID is required'],
   },
-  roomId: {
+  room_id: {
     type: String,
     required: [true, 'Room ID is required'],
   },
-  startTime: {
+  room_name: {
+    type: String,
+  },
+  start_time: {
     type: Date,
     required: [true, 'Start time is required'],
   },
-  endTime: {
+  end_time: {
     type: Date,
     required: [true, 'End time is required'],
+  },
+  // Virtual fields for easier querying
+  date: {
+    type: String, // Format: YYYY-MM-DD
+  },
+  time: {
+    type: String, // Format: HH:mm
+  },
+  price: {
+    type: Number,
+    default: 50000,
+  },
+  available_seats: {
+    type: Number,
+    default: 30,
+  },
+  total_seats: {
+    type: Number,
+    default: 30,
   },
   language: {
     type: String,
@@ -33,7 +55,7 @@ const showtimeSchema = new mongoose.Schema({
     default: 'English',
   },
   subtitle: {
-    type: String, // Hoặc dùng [String] nếu có nhiều phụ đề
+    type: String,
     required: [true, 'Subtitle is required'],
   },
 }, {
@@ -41,7 +63,19 @@ const showtimeSchema = new mongoose.Schema({
 });
 
 // Index for better query performance
-showtimeSchema.index({ cinemaId: 1, movieId: 1, startTime: -1 });
-showtimeSchema.index({ status: 1 });
+showtimeSchema.index({ cinema_id: 1, movie_id: 1, start_time: -1 });
+showtimeSchema.index({ cinema_id: 1, date: 1 });
+showtimeSchema.index({ start_time: 1 });
+showtimeSchema.index({ date: 1, time: 1 });
+
+// Pre-save hook to generate date and time from start_time
+showtimeSchema.pre('save', function(next) {
+  if (this.start_time && !this.date) {
+    const startDate = new Date(this.start_time);
+    this.date = startDate.toISOString().split('T')[0];
+    this.time = startDate.toTimeString().slice(0, 5);
+  }
+  next();
+});
 
 module.exports = mongoose.model('Showtime', showtimeSchema);

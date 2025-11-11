@@ -6,14 +6,20 @@ const {
   updateBooking,
   deleteBooking,
   getUserBookings,
-  cancelBooking
+  cancelBooking,
+  getOccupiedSeats,
+  getOccupiedSeatsByRoom
 } = require('../controllers/booking.controller');
 const { protect } = require('../middlewares/auth.middleware');
 
 const router = express.Router();
 
+// Public routes for getting occupied seats (MUST be before protect middleware)
+router.get('/showtime/:showtimeId/seats', getOccupiedSeats);
+router.get('/room/:roomId/occupied-seats', getOccupiedSeatsByRoom);
+
 // Protected routes
-router.use(protect); // All booking routes require authentication
+router.use(protect); // All routes below require authentication
 
 router.get('/', getUserBookings);
 router.get('/:id', getBooking);

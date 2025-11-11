@@ -59,6 +59,10 @@ Backend API for Movie Booking Application built with Node.js, Express, and Mongo
 
    # CORS Configuration
    CLIENT_URL=http://localhost:3000
+
+   # Email Configuration (for OTP verification)
+   EMAIL_USER=your-email@gmail.com
+   EMAIL_PASS=your-app-password
    ```
 
 4. **Start MongoDB**
@@ -77,7 +81,9 @@ Backend API for Movie Booking Application built with Node.js, Express, and Mongo
 ## API Endpoints
 
 ### Authentication
-- `POST /api/v1/auth/register` - Register user
+- `POST /api/v1/auth/send-otp` - Send OTP to email for registration
+- `POST /api/v1/auth/verify-otp` - Verify OTP and complete registration
+- `POST /api/v1/auth/resend-otp` - Resend OTP for registration
 - `POST /api/v1/auth/login` - Login user
 - `POST /api/v1/auth/logout` - Logout user
 - `GET /api/v1/auth/me` - Get current user
@@ -178,6 +184,60 @@ curl http://localhost:5000/health
 3. Set strong JWT_SECRET
 4. Configure proper CORS origins
 5. Use PM2 for process management
+
+## OTP Registration Flow
+
+### Registration với Email Verification
+
+1. **Send OTP**
+   ```http
+   POST /api/v1/auth/send-otp
+   Content-Type: application/json
+
+   {
+     "fullName": "Nguyen Van A",
+     "email": "user@example.com",
+     "phoneNumber": "0901234567",
+     "password": "password123",
+     "dateOfBirth": "1990-01-01"
+   }
+   ```
+
+2. **Verify OTP và Complete Registration**
+   ```http
+   POST /api/v1/auth/verify-otp
+   Content-Type: application/json
+
+   {
+     "email": "user@example.com",
+     "otp": "123456"
+   }
+   ```
+
+3. **Resend OTP (nếu cần)**
+   ```http
+   POST /api/v1/auth/resend-otp
+   Content-Type: application/json
+
+   {
+     "email": "user@example.com"
+   }
+   ```
+
+### Email Configuration
+
+Để sử dụng tính năng OTP qua email, bạn cần:
+
+1. **Gmail App Password**:
+   - Bật 2-Factor Authentication cho Gmail
+   - Tạo App Password: https://myaccount.google.com/apppasswords
+   - Sử dụng App Password làm `EMAIL_PASS`
+
+2. **Cấu hình .env**:
+   ```env
+   EMAIL_USER=your-gmail@gmail.com
+   EMAIL_PASS=your-16-digit-app-password
+   ```
 
 ## API Documentation
 

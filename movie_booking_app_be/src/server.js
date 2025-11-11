@@ -13,6 +13,8 @@ const movieRoutes = require('./routes/movie.routes');
 const bookingRoutes = require('./routes/booking.routes');
 const cinemaRoutes = require('./routes/cinema.routes');
 const showtimeRoutes = require('./routes/showtime.routes'); // Thêm route cho showtime
+const userRoutes = require('./routes/user.routes');
+const adminRoutes = require('./routes/admin.routes');
 
 const app = express();
 
@@ -67,6 +69,8 @@ app.use('/api/v1/movies', movieRoutes);
 app.use('/api/v1/bookings', bookingRoutes);
 app.use('/api/v1/cinemas', cinemaRoutes);
 app.use('/api/v1/showtimes', showtimeRoutes);
+app.use('/api/v1/users', userRoutes);
+app.use('/api/v1/admin', adminRoutes);
 
 // // Debug log for registered routes
 // console.log('Routes registered:', {

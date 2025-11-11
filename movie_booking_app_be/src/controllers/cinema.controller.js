@@ -1,4 +1,6 @@
 const Cinema = require('../models/Cinema');
+const Showtime = require('../models/Showtime');
+const Movie = require('../models/Movie');
 const { sendSuccessResponse, sendErrorResponse, sendPaginatedResponse, paginate } = require('../utils/response');
 
 // @desc    Get all cinemas
@@ -6,6 +8,9 @@ const { sendSuccessResponse, sendErrorResponse, sendPaginatedResponse, paginate 
 // @access  Public
 const getCinemas = async (req, res, next) => {
   try {
+    console.log('=== DEBUG getCinemas ===');
+    console.log('Collection name:', Cinema.collection.name);
+    
     const { page, limit, city, rating } = req.query;
     const { page: pageNum, limit: limitNum, skip } = paginate(page, limit);
 
@@ -13,6 +18,8 @@ const getCinemas = async (req, res, next) => {
     let filter = {};
     if (city) filter.city = city;
     if (rating) filter.rating = { $gte: parseFloat(rating) };
+    
+    console.log('Filter:', filter);
 
     const cinemas = await Cinema.find(filter)
       .sort({ rating: -1 })
@@ -20,6 +27,11 @@ const getCinemas = async (req, res, next) => {
       .limit(limitNum);
 
     const total = await Cinema.countDocuments(filter);
+    
+    console.log('Cinemas found:', cinemas.length);
+    console.log('Total count:', total);
+    console.log('Sample cinema:', cinemas[0]);
+    console.log('=== END DEBUG getCinemas ===');
 
     sendPaginatedResponse(res, cinemas, { page: pageNum, limit: limitNum, total }, 'Cinemas retrieved successfully');
   } catch (error) {
@@ -221,5 +233,85 @@ module.exports = {
   getRoomById,
   createRoom,
   updateRoom,
-  deleteRoom
+  deleteRoom,
+  getCinemaShowtimes
 };
+
+// @desc    Get cinema showtimes for today
+// @route   GET /api/v1/cinemas/:id/showtimes
+// @access  Public
+async function getCinemaShowtimes(req, res, next) {
+  try {
+    const { id } = req.params;
+    const { date } = req.query;
+    
+    // Get cinema
+    const cinema = await Cinema.findById(id);
+    if (!cinema) {
+      return sendErrorResponse(res, 'Cinema not found', 404);
+    }
+
+    // Use provided date or today's date
+    const targetDate = date || new Date().toISOString().split('T')[0];
+    
+    console.log(`Fetching showtimes for cinema ${id} on ${targetDate}`);
+
+    // Get all showtimes for this cinema on the target date
+    const showtimes = await Showtime.find({
+      cinema_id: id,
+      date: targetDate
+    }).sort({ time: 1 });
+
+    console.log(`Found ${showtimes.length} showtimes`);
+
+    // Group showtimes by movie
+    const movieShowtimesMap = {};
+    
+    for (const showtime of showtimes) {
+      if (!movieShowtimesMap[showtime.movie_id]) {
+        // Get movie details
+        const movie = await Movie.findById(showtime.movie_id);
+        
+        movieShowtimesMap[showtime.movie_id] = {
+          movieId: showtime.movie_id,
+          movieTitle: movie?.title || 'Unknown Movie',
+          moviePoster: movie?.poster_url || '',
+          movieDuration: movie?.duration || 0,
+          movieRating: movie?.rating || 0,
+          showtimes: []
+        };
+      }
+      
+      // Add showtime to the movie's showtimes array
+      movieShowtimesMap[showtime.movie_id].showtimes.push({
+        showtimeId: showtime._id,
+        time: showtime.time,
+        roomId: showtime.room_id, // Use room_id from database
+        roomName: showtime.room_name,
+        price: showtime.price,
+        availableSeats: showtime.available_seats,
+        totalSeats: showtime.total_seats
+      });
+    }
+
+    // Convert map to array
+    const movieShowtimes = Object.values(movieShowtimesMap);
+
+    sendSuccessResponse(res, {
+      cinema: {
+        id: cinema._id,
+        name: cinema.name,
+        address: cinema.address,
+        city: cinema.city,
+        rating: cinema.rating
+      },
+      date: targetDate,
+      movies: movieShowtimes,
+      totalMovies: movieShowtimes.length,
+      totalShowtimes: showtimes.length
+    }, 'Cinema showtimes retrieved successfully');
+  } catch (error) {
+    console.error('Get cinema showtimes error:', error);
+    next(error);
+  }
+}

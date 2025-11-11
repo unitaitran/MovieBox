@@ -7,10 +7,11 @@ const {
   deleteCinema,
   getCinemasByCity,
   getCinemaRooms,
-  getRoomById,      // Thêm mới
-  updateRoom,       // Thêm mới
-  createRoom,       // Thêm mới
-  deleteRoom        // Thêm mới
+  getRoomById,
+  updateRoom,
+  createRoom,
+  deleteRoom,
+  getCinemaShowtimes
 } = require('../controllers/cinema.controller');
 
 const router = express.Router();
@@ -18,6 +19,10 @@ const router = express.Router();
 // Public routes
 router.route('/city/:city')
   .get(getCinemasByCity);
+
+// Showtimes route
+router.route('/:id/showtimes')
+  .get(getCinemaShowtimes);
 
 // Room routes
 router.route('/:id/rooms')

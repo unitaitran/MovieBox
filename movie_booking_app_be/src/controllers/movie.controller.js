@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Movie = require('../models/Movie');
 const { sendSuccessResponse, sendErrorResponse, sendPaginatedResponse, paginate } = require('../utils/response');
 
@@ -6,6 +7,10 @@ const { sendSuccessResponse, sendErrorResponse, sendPaginatedResponse, paginate 
 // @access  Public
 const getMovies = async (req, res, next) => {
   try {
+    console.log('=== DEBUG getMovies ===');
+    console.log('Database connection:', mongoose.connection.name);
+    console.log('Collection name:', Movie.collection.name);
+    
     const { page, limit, genre, status, sortBy } = req.query;
     const { page: pageNum, limit: limitNum, skip } = paginate(page, limit);
 
@@ -13,6 +18,8 @@ const getMovies = async (req, res, next) => {
     let filter = {};
     if (genre) filter.genre = genre;
     if (status) filter.status = status;
+    
+    console.log('Filter:', filter);
 
     // Build sort
     let sort = {};
@@ -36,6 +43,11 @@ const getMovies = async (req, res, next) => {
       .limit(limitNum);
 
     const total = await Movie.countDocuments(filter);
+    
+    console.log('Movies found:', movies.length);
+    console.log('Total count:', total);
+    console.log('Sample movie:', movies[0]);
+    console.log('=== END DEBUG getMovies ===');
 
     sendPaginatedResponse(res, movies, { page: pageNum, limit: limitNum, total }, 'Movies retrieved successfully');
   } catch (error) {
@@ -114,10 +126,31 @@ const getMovie = async (req, res, next) => {
 // @access  Private/Admin
 const createMovie = async (req, res, next) => {
   try {
+    console.log('📥 Creating movie with data:', req.body);
+    
     const movie = await Movie.create(req.body);
 
+    console.log('✅ Movie created successfully:', movie._id);
     sendSuccessResponse(res, movie, 'Movie created successfully', 201);
   } catch (error) {
+    console.error('❌ Create movie error:', error.message);
+    
+    // Handle validation errors
+    if (error.name === 'ValidationError') {
+      const errors = Object.keys(error.errors).map(key => ({
+        field: key,
+        message: error.errors[key].message
+      }));
+      
+      console.error('Validation errors:', errors);
+      
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: errors
+      });
+    }
+    
     next(error);
   }
 };
@@ -127,6 +160,8 @@ const createMovie = async (req, res, next) => {
 // @access  Private/Admin
 const updateMovie = async (req, res, next) => {
   try {
+    console.log('📝 Updating movie:', req.params.id, 'with data:', req.body);
+    
     const movie = await Movie.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
       runValidators: true
@@ -136,8 +171,27 @@ const updateMovie = async (req, res, next) => {
       return sendErrorResponse(res, 'Movie not found', 404);
     }
 
+    console.log('✅ Movie updated successfully:', movie._id);
     sendSuccessResponse(res, movie, 'Movie updated successfully');
   } catch (error) {
+    console.error('❌ Update movie error:', error.message);
+    
+    // Handle validation errors
+    if (error.name === 'ValidationError') {
+      const errors = Object.keys(error.errors).map(key => ({
+        field: key,
+        message: error.errors[key].message
+      }));
+      
+      console.error('Validation errors:', errors);
+      
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: errors
+      });
+    }
+    
     next(error);
   }
 };

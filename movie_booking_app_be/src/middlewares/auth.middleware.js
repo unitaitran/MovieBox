@@ -13,8 +13,10 @@ const protect = async (req, res, next) => {
       // Verify token
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your_super_secret_jwt_key_here');
 
-      // Get user from the token
-      req.user = await User.findById(decoded.id).select('-password');
+      // Get user from the token (handle both 'id' and 'userId' fields)
+      const userId = decoded.id || decoded.userId;
+
+      req.user = await User.findById(userId).select('-password_hash');
 
       if (!req.user) {
         return res.status(401).json({
@@ -25,7 +27,7 @@ const protect = async (req, res, next) => {
 
       next();
     } catch (error) {
-      console.error('Token verification error:', error);
+      console.error('❌ Token verification error:', error);
       return res.status(401).json({
         success: false,
         message: 'Not authorized, token failed'
@@ -56,7 +58,10 @@ const authorize = (...roles) => {
 
 // Generate JWT Token
 const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET || 'your_super_secret_jwt_key_here', {
+  // Support both string ID and object payload
+  const payload = typeof id === 'string' ? { id } : id;
+  
+  return jwt.sign(payload, process.env.JWT_SECRET || 'your_super_secret_jwt_key_here', {
     expiresIn: process.env.JWT_EXPIRE || '7d'
   });
 };

@@ -3,60 +3,69 @@ const mongoose = require('mongoose');
 const movieSchema = new mongoose.Schema({
   _id: {
     type: String,
-    required: true
+    default: function() {
+      return 'm' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+    }
   },
   title: {
     type: String,
-    required: true,
+    required: [true, 'Movie title is required'],
     trim: true
   },
   description: {
     type: String,
-    required: true
+    required: [true, 'Movie description is required']
   },
   poster_url: {
     type: String,
-    required: true
+    required: [true, 'Poster URL is required']
   },
   banner_url: {
     type: String,
-    required: true
+    default: function() {
+      return this.poster_url; // Use poster_url as banner if not provided
+    }
   },
   director: {
     type: String,
-    required: true
+    required: [true, 'Director name is required']
   },
   cast: [{
     type: String
   }],
   genre: {
     type: String,
-    required: true
+    required: [true, 'Genre is required']
   },
   language: {
     type: String,
-    required: true
+    required: [true, 'Language is required']
   },
   duration: {
     type: Number,
-    required: true
+    required: [true, 'Duration is required'],
+    min: [1, 'Duration must be at least 1 minute']
   },
   release_date: {
     type: String,
-    required: true
+    required: [true, 'Release date is required']
   },
   age_limit: {
     type: Number,
-    required: true
+    required: [true, 'Age limit is required'],
+    min: [0, 'Age limit must be 0 or higher']
   },
   status: {
     type: String,
-    required: true,
-    enum: ['now-showing', 'coming-soon', 'ended']
+    required: [true, 'Status is required'],
+    enum: {
+      values: ['now-showing', 'coming-soon', 'ended'],
+      message: 'Status must be either now-showing, coming-soon, or ended'
+    }
   },
   rating: {
-    type: String,
-    required: true
+    type: Number,
+    default: 0
   },
   showtimes: [{
     cinemaId: {

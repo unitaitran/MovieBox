@@ -43,33 +43,35 @@ const login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
-    // Check for user
-    const user = await User.findOne({ email }).select('+password');
+    // Check for user (use password_hash field)
+    const user = await User.findOne({ email }).select('+password_hash');
 
     if (!user) {
       return sendErrorResponse(res, 'Invalid credentials', 401);
     }
 
-    // Check if password matches
-    const isMatch = await user.comparePassword(password);
+    // Check if password matches (password is stored in password_hash field)
+    // For now, do direct comparison since passwords are plain text
+    const isMatch = user.password_hash === password;
 
     if (!isMatch) {
       return sendErrorResponse(res, 'Invalid credentials', 401);
     }
 
     // Check if user is active
-    if (!user.isActive) {
+    if (user.status !== 'Active') {
       return sendErrorResponse(res, 'Account is deactivated', 401);
     }
 
-    // Generate token
-    const token = generateToken(user._id);
+    // Generate token using user's generateAuthToken method (includes role)
+    const token = user.generateAuthToken();
 
     sendSuccessResponse(res, {
       user,
       token
     }, 'Login successful');
   } catch (error) {
+    console.error('❌ Login error:', error);
     next(error);
   }
 };

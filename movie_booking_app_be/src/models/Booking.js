@@ -2,23 +2,41 @@ const mongoose = require('mongoose');
 
 const bookingSchema = new mongoose.Schema({
   user: {
-    type: mongoose.Schema.Types.ObjectId,
+    type: String, // Changed from ObjectId to String to match User model's custom _id
     ref: 'User',
     required: [true, 'User is required']
   },
   movie: {
-    type: mongoose.Schema.Types.ObjectId,
+    type: String, // Changed to String for consistency
     ref: 'Movie',
-    required: [true, 'Movie is required']
+    required: false // Make optional for cases where movie might not be in DB
   },
   cinema: {
-    type: mongoose.Schema.Types.ObjectId,
+    type: String, // Changed to String for consistency
     ref: 'Cinema',
-    required: [true, 'Cinema is required']
+    required: false // Make optional for cases where cinema might not be in DB
+  },
+  room: {
+    type: String,
+    ref: 'Room',
+    required: false // Room ID where the showtime takes place
+  },
+  // Extra fields for display when movie/cinema not in DB
+  movieTitle: {
+    type: String
+  },
+  posterUrl: {
+    type: String
+  },
+  cinemaName: {
+    type: String
+  },
+  roomName: {
+    type: String
   },
   showtime: {
     date: {
-      type: Date,
+      type: String,
       required: [true, 'Show date is required']
     },
     time: {
@@ -45,6 +63,14 @@ const bookingSchema = new mongoose.Schema({
     required: [true, 'Total amount is required'],
     min: [0, 'Total amount cannot be negative']
   },
+  paymentMethod: {
+    type: String,
+    enum: ['momo', 'zalopay', 'vnpay', 'cash', 'credit-card'],
+    default: 'momo'
+  },
+  transactionId: {
+    type: String // MoMo transaction ID
+  },
   bookingStatus: {
     type: String,
     enum: ['pending', 'confirmed', 'cancelled', 'expired'],
@@ -52,17 +78,16 @@ const bookingSchema = new mongoose.Schema({
   },
   paymentStatus: {
     type: String,
-    enum: ['pending', 'paid', 'failed', 'refunded'],
+    enum: ['pending', 'completed', 'failed', 'refunded'],
     default: 'pending'
   },
   bookingReference: {
     type: String,
     unique: true,
-    required: true
+    sparse: true // Allow multiple null values
   },
   qrCode: {
-    type: String,
-    required: true
+    type: String
   },
   specialRequests: {
     type: String,

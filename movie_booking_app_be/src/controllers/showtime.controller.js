@@ -1,23 +1,39 @@
 const Showtime = require('../models/Showtime');
 const { sendSuccessResponse, sendErrorResponse, sendPaginatedResponse, paginate } = require('../utils/response');
 
-// Helper function to split date and time for start_time
+// Helper function to get the correct start time field from document
+const getStartTime = (showtimeObj) => {
+  return showtimeObj.start_time || showtimeObj.startTime || null;
+};
+
+// Helper function to get the correct end time field from document
+const getEndTime = (showtimeObj) => {
+  return showtimeObj.end_time || showtimeObj.endTime || null;
+};
+
+// Helper function to split date and time for start_time with Vietnam timezone
 const splitStartDateTime = (dateTime) => {
-  if (!dateTime || typeof dateTime !== 'string') return { startDate: null, startTimeOfDay: null };
+  if (!dateTime) return { startDate: null, startTimeOfDay: null };
   const date = new Date(dateTime);
-  if (isNaN(date.getTime())) return { startDate: null, startTimeOfDay: null }; // Kiểm tra nếu date không hợp lệ
-  const startDate = date.toISOString().split('T')[0]; // Lấy ngày (YYYY-MM-DD)
-  const startTimeOfDay = date.toTimeString().split(' ')[0]; // Lấy giờ (HH:MM:SS)
+  if (isNaN(date.getTime())) return { startDate: null, startTimeOfDay: null };
+  
+  // Convert to Vietnam timezone (UTC+7)
+  const vietnamDate = new Date(date.getTime() + (7 * 60 * 60 * 1000));
+  const startDate = vietnamDate.toISOString().split('T')[0]; // Lấy ngày (YYYY-MM-DD)
+  const startTimeOfDay = vietnamDate.toISOString().split('T')[1].split('.')[0]; // Lấy giờ (HH:MM:SS)
   return { startDate, startTimeOfDay };
 };
 
-// Helper function to split date and time for end_time
+// Helper function to split date and time for end_time with Vietnam timezone
 const splitEndDateTime = (dateTime) => {
-  if (!dateTime || typeof dateTime !== 'string') return { endDate: null, endTimeOfDay: null };
+  if (!dateTime) return { endDate: null, endTimeOfDay: null };
   const date = new Date(dateTime);
-  if (isNaN(date.getTime())) return { endDate: null, endTimeOfDay: null }; // Kiểm tra nếu date không hợp lệ
-  const endDate = date.toISOString().split('T')[0]; // Lấy ngày (YYYY-MM-DD)
-  const endTimeOfDay = date.toTimeString().split(' ')[0]; // Lấy giờ (HH:MM:SS)
+  if (isNaN(date.getTime())) return { endDate: null, endTimeOfDay: null };
+  
+  // Convert to Vietnam timezone (UTC+7)
+  const vietnamDate = new Date(date.getTime() + (7 * 60 * 60 * 1000));
+  const endDate = vietnamDate.toISOString().split('T')[0]; // Lấy ngày (YYYY-MM-DD)
+  const endTimeOfDay = vietnamDate.toISOString().split('T')[1].split('.')[0]; // Lấy giờ (HH:MM:SS)
   return { endDate, endTimeOfDay };
 };
 
@@ -26,7 +42,6 @@ const splitEndDateTime = (dateTime) => {
 // @access  Public
 const getShowtimes = async (req, res, next) => {
   try {
-    console.log('Query params:', req.query); // Debug log
     const { page, limit, cinemaId, movieId } = req.query;
     const { page: pageNum, limit: limitNum, skip } = paginate(page, limit);
 
@@ -35,37 +50,31 @@ const getShowtimes = async (req, res, next) => {
     if (cinemaId) filter.cinemaId = cinemaId;
     if (movieId) filter.movieId = movieId;
 
-    // Build sort
-    let sort = {};
-    switch (req.query.sortBy) {
-      case 'date':
-        sort = { start_time: -1 }; // Sử dụng start_time để sắp xếp
-        break;
-      default:
-        sort = { createdAt: -1 };
-    }
-
+    // Sử dụng find thông thường trước
     const showtimes = await Showtime.find(filter)
-      .sort(sort)
+      .sort({ start_time: -1 }) // Sử dụng start_time từ database
       .skip(skip)
       .limit(limitNum);
-
-    console.log('Found showtimes raw:', showtimes); // Debug log raw data
 
     // Tách ngày và giờ cho mỗi showtime
     const formattedShowtimes = showtimes.map(showtime => {
       const showtimeObj = showtime.toObject();
-      console.log('Processing showtime:', showtimeObj._id, 'start_time:', showtimeObj.start_time, 'end_time:', showtimeObj.end_time); // Debug log raw times
+      const startTimeValue = getStartTime(showtimeObj);
+      const endTimeValue = getEndTime(showtimeObj);
+      
       return {
         ...showtimeObj,
-        startDate: splitStartDateTime(showtimeObj.start_time).startDate,
-        startTimeOfDay: splitStartDateTime(showtimeObj.start_time).startTimeOfDay,
-        endDate: splitEndDateTime(showtimeObj.end_time).endDate,
-        endTimeOfDay: splitEndDateTime(showtimeObj.end_time).endTimeOfDay,
+        startDate: splitStartDateTime(startTimeValue).startDate,
+        startTimeOfDay: splitStartDateTime(startTimeValue).startTimeOfDay,
+        endDate: splitEndDateTime(endTimeValue).endDate,
+        endTimeOfDay: splitEndDateTime(endTimeValue).endTimeOfDay,
+        // Keep both formats for compatibility
+        start_time: startTimeValue,
+        end_time: endTimeValue,
+        startTime: startTimeValue,
+        endTime: endTimeValue
       };
     });
-
-    console.log('Formatted showtimes sample:', formattedShowtimes[0]); // Debug log formatted data
 
     const total = await Showtime.countDocuments(filter);
 
@@ -89,15 +98,23 @@ const getShowtime = async (req, res, next) => {
     }
 
     const showtimeObj = showtime.toObject();
-    console.log('Processing single showtime:', showtimeObj._id, 'start_time:', showtimeObj.start_time); // Debug log
+    const startTimeValue = getStartTime(showtimeObj);
+    const endTimeValue = getEndTime(showtimeObj);
+    
+    console.log('Processing single showtime:', showtimeObj._id, 'startTime:', startTimeValue); // Debug log
 
     // Tách ngày và giờ
     const formattedShowtime = {
       ...showtimeObj,
-      startDate: splitStartDateTime(showtimeObj.start_time).startDate,
-      startTimeOfDay: splitStartDateTime(showtimeObj.start_time).startTimeOfDay,
-      endDate: splitEndDateTime(showtimeObj.end_time).endDate,
-      endTimeOfDay: splitEndDateTime(showtimeObj.end_time).endTimeOfDay,
+      startDate: splitStartDateTime(startTimeValue).startDate,
+      startTimeOfDay: splitStartDateTime(startTimeValue).startTimeOfDay,
+      endDate: splitEndDateTime(endTimeValue).endDate,
+      endTimeOfDay: splitEndDateTime(endTimeValue).endTimeOfDay,
+      // Keep both formats for compatibility
+      start_time: startTimeValue,
+      end_time: endTimeValue,
+      startTime: startTimeValue,
+      endTime: endTimeValue
     };
 
     sendSuccessResponse(res, formattedShowtime, 'Showtime retrieved successfully');
@@ -116,15 +133,23 @@ const createShowtime = async (req, res, next) => {
     const showtime = await Showtime.create(req.body);
 
     const showtimeObj = showtime.toObject();
-    console.log('Created showtime start_time:', showtimeObj.start_time); // Debug log
+    const startTimeValue = getStartTime(showtimeObj);
+    const endTimeValue = getEndTime(showtimeObj);
+    
+    console.log('Created showtime startTime:', startTimeValue); // Debug log
 
     // Tách ngày và giờ để trả về phản hồi
     const formattedShowtime = {
       ...showtimeObj,
-      startDate: splitStartDateTime(showtimeObj.start_time).startDate,
-      startTimeOfDay: splitStartDateTime(showtimeObj.start_time).startTimeOfDay,
-      endDate: splitEndDateTime(showtimeObj.end_time).endDate,
-      endTimeOfDay: splitEndDateTime(showtimeObj.end_time).endTimeOfDay,
+      startDate: splitStartDateTime(startTimeValue).startDate,
+      startTimeOfDay: splitStartDateTime(startTimeValue).startTimeOfDay,
+      endDate: splitEndDateTime(endTimeValue).endDate,
+      endTimeOfDay: splitEndDateTime(endTimeValue).endTimeOfDay,
+      // Keep both formats for compatibility
+      start_time: startTimeValue,
+      end_time: endTimeValue,
+      startTime: startTimeValue,
+      endTime: endTimeValue
     };
 
     sendSuccessResponse(res, formattedShowtime, 'Showtime created successfully', 201);
@@ -150,15 +175,23 @@ const updateShowtime = async (req, res, next) => {
     }
 
     const showtimeObj = showtime.toObject();
-    console.log('Updated showtime start_time:', showtimeObj.start_time); // Debug log
+    const startTimeValue = getStartTime(showtimeObj);
+    const endTimeValue = getEndTime(showtimeObj);
+    
+    console.log('Updated showtime start_time:', startTimeValue); // Debug log
 
     // Tách ngày và giờ
     const formattedShowtime = {
       ...showtimeObj,
-      startDate: splitStartDateTime(showtimeObj.start_time).startDate,
-      startTimeOfDay: splitStartDateTime(showtimeObj.start_time).startTimeOfDay,
-      endDate: splitEndDateTime(showtimeObj.end_time).endDate,
-      endTimeOfDay: splitEndDateTime(showtimeObj.end_time).endTimeOfDay,
+      startDate: splitStartDateTime(startTimeValue).startDate,
+      startTimeOfDay: splitStartDateTime(startTimeValue).startTimeOfDay,
+      endDate: splitEndDateTime(endTimeValue).endDate,
+      endTimeOfDay: splitEndDateTime(endTimeValue).endTimeOfDay,
+      // Keep both formats for compatibility
+      start_time: startTimeValue,
+      end_time: endTimeValue,
+      startTime: startTimeValue,
+      endTime: endTimeValue
     };
 
     sendSuccessResponse(res, formattedShowtime, 'Showtime updated successfully');
@@ -196,8 +229,14 @@ const getShowtimesByCinema = async (req, res, next) => {
     const { page, limit } = req.query;
     const { page: pageNum, limit: limitNum, skip } = paginate(page, limit);
 
-    const showtimes = await Showtime.find({ cinemaId: req.params.cinemaId })
-      .sort({ start_time: -1 })
+    // Support both camelCase and snake_case
+    const showtimes = await Showtime.find({ 
+      $or: [
+        { cinemaId: req.params.cinemaId },
+        { cinema_id: req.params.cinemaId }
+      ]
+    })
+      .sort({ start_time: -1 }) // Sử dụng start_time từ database
       .skip(skip)
       .limit(limitNum);
 
@@ -206,16 +245,29 @@ const getShowtimesByCinema = async (req, res, next) => {
     // Tách ngày và giờ
     const formattedShowtimes = showtimes.map(showtime => {
       const showtimeObj = showtime.toObject();
+      const startTimeValue = getStartTime(showtimeObj);
+      const endTimeValue = getEndTime(showtimeObj);
+      
       return {
         ...showtimeObj,
-        startDate: splitStartDateTime(showtimeObj.start_time).startDate,
-        startTimeOfDay: splitStartDateTime(showtimeObj.start_time).startTimeOfDay,
-        endDate: splitEndDateTime(showtimeObj.end_time).endDate,
-        endTimeOfDay: splitEndDateTime(showtimeObj.end_time).endTimeOfDay,
+        startDate: splitStartDateTime(startTimeValue).startDate,
+        startTimeOfDay: splitStartDateTime(startTimeValue).startTimeOfDay,
+        endDate: splitEndDateTime(endTimeValue).endDate,
+        endTimeOfDay: splitEndDateTime(endTimeValue).endTimeOfDay,
+        // Keep both formats for compatibility
+        start_time: startTimeValue,
+        end_time: endTimeValue,
+        startTime: startTimeValue,
+        endTime: endTimeValue
       };
     });
 
-    const total = await Showtime.countDocuments({ cinemaId: req.params.cinemaId });
+    const total = await Showtime.countDocuments({ 
+      $or: [
+        { cinemaId: req.params.cinemaId },
+        { cinema_id: req.params.cinemaId }
+      ]
+    });
 
     sendPaginatedResponse(res, formattedShowtimes, { page: pageNum, limit: limitNum, total }, 'Showtimes retrieved successfully');
   } catch (error) {
@@ -233,8 +285,14 @@ const getShowtimesByMovie = async (req, res, next) => {
     const { page, limit } = req.query;
     const { page: pageNum, limit: limitNum, skip } = paginate(page, limit);
 
-    const showtimes = await Showtime.find({ movieId: req.params.movieId })
-      .sort({ start_time: -1 })
+    // Support both camelCase and snake_case
+    const showtimes = await Showtime.find({ 
+      $or: [
+        { movieId: req.params.movieId },
+        { movie_id: req.params.movieId }
+      ]
+    })
+      .sort({ start_time: -1 }) // Sử dụng start_time từ database
       .skip(skip)
       .limit(limitNum);
 
@@ -243,17 +301,30 @@ const getShowtimesByMovie = async (req, res, next) => {
     // Tách ngày và giờ
     const formattedShowtimes = showtimes.map(showtime => {
       const showtimeObj = showtime.toObject();
-      console.log('Processing movie showtime:', showtimeObj._id, 'start_time:', showtimeObj.start_time); // Debug log
+      const startTimeValue = getStartTime(showtimeObj);
+      const endTimeValue = getEndTime(showtimeObj);
+      
+      console.log('Processing movie showtime:', showtimeObj._id, 'startTime:', startTimeValue); // Debug log
       return {
         ...showtimeObj,
-        startDate: splitStartDateTime(showtimeObj.start_time).startDate,
-        startTimeOfDay: splitStartDateTime(showtimeObj.start_time).startTimeOfDay,
-        endDate: splitEndDateTime(showtimeObj.end_time).endDate,
-        endTimeOfDay: splitEndDateTime(showtimeObj.end_time).endTimeOfDay,
+        startDate: splitStartDateTime(startTimeValue).startDate,
+        startTimeOfDay: splitStartDateTime(startTimeValue).startTimeOfDay,
+        endDate: splitEndDateTime(endTimeValue).endDate,
+        endTimeOfDay: splitEndDateTime(endTimeValue).endTimeOfDay,
+        // Keep both formats for compatibility
+        start_time: startTimeValue,
+        end_time: endTimeValue,
+        startTime: startTimeValue,
+        endTime: endTimeValue
       };
     });
 
-    const total = await Showtime.countDocuments({ movieId: req.params.movieId });
+    const total = await Showtime.countDocuments({ 
+      $or: [
+        { movieId: req.params.movieId },
+        { movie_id: req.params.movieId }
+      ]
+    });
 
     sendPaginatedResponse(res, formattedShowtimes, { page: pageNum, limit: limitNum, total }, 'Showtimes retrieved successfully');
   } catch (error) {
@@ -274,7 +345,7 @@ const getUpcomingShowtimes = async (req, res, next) => {
     // Định nghĩa upcoming dựa trên start_time > current date
     const currentDate = new Date();
     const showtimes = await Showtime.find({ start_time: { $gt: currentDate } })
-      .sort({ start_time: 1 })
+      .sort({ start_time: 1 }) // Sử dụng start_time từ database
       .skip(skip)
       .limit(limitNum);
 
@@ -283,12 +354,20 @@ const getUpcomingShowtimes = async (req, res, next) => {
     // Tách ngày và giờ
     const formattedShowtimes = showtimes.map(showtime => {
       const showtimeObj = showtime.toObject();
+      const startTimeValue = getStartTime(showtimeObj);
+      const endTimeValue = getEndTime(showtimeObj);
+      
       return {
         ...showtimeObj,
-        startDate: splitStartDateTime(showtimeObj.start_time).startDate,
-        startTimeOfDay: splitStartDateTime(showtimeObj.start_time).startTimeOfDay,
-        endDate: splitEndDateTime(showtimeObj.end_time).endDate,
-        endTimeOfDay: splitEndDateTime(showtimeObj.end_time).endTimeOfDay,
+        startDate: splitStartDateTime(startTimeValue).startDate,
+        startTimeOfDay: splitStartDateTime(startTimeValue).startTimeOfDay,
+        endDate: splitEndDateTime(endTimeValue).endDate,
+        endTimeOfDay: splitEndDateTime(endTimeValue).endTimeOfDay,
+        // Keep both formats for compatibility
+        start_time: startTimeValue,
+        end_time: endTimeValue,
+        startTime: startTimeValue,
+        endTime: endTimeValue
       };
     });
 
