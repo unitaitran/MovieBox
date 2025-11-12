@@ -127,6 +127,9 @@ const getMovie = async (req, res, next) => {
 const createMovie = async (req, res, next) => {
   try {
     console.log('📥 Creating movie with data:', req.body);
+    console.log('📋 Request headers:', req.headers);
+    console.log('📦 Request content-type:', req.get('content-type'));
+    console.log('🔑 Request auth:', req.headers.authorization ? 'Present' : 'Missing');
     
     const movie = await Movie.create(req.body);
 

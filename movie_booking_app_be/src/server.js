@@ -24,19 +24,32 @@ connectDB();
 // Security middleware
 app.use(helmet());
 
-// CORS configuration
-app.use(cors({
-  origin: [
-    'http://localhost:3000', // React app
-    'http://localhost:8081', // Expo dev server
-    'http://localhost:8082', // Expo dev server (port khác)
-    'exp://localhost:8081', // Expo mobile URL
-    'exp://localhost:8082', // Expo mobile URL
-  ],
+// CORS configuration - Allow all origins in development
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (mobile apps, Postman, etc.)
+    if (!origin || process.env.NODE_ENV === 'development') {
+      callback(null, true);
+    } else {
+      // In production, check whitelist
+      const allowedOrigins = [
+        'http://localhost:3000',
+        'http://localhost:8081',
+        'http://localhost:8082',
+      ];
+      if (allowedOrigins.indexOf(origin) !== -1) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    }
+  },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With']
-}));
+};
+
+app.use(cors(corsOptions));
 
 // Logging middleware
 if (process.env.NODE_ENV === 'development') {
@@ -47,9 +60,15 @@ if (process.env.NODE_ENV === 'development') {
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Request logging middleware
+// Debug middleware - log all requests
 app.use((req, res, next) => {
-  console.log(`${req.method} ${req.url}`);
+  console.log(`\n${req.method} ${req.url}`);
+  console.log('Headers:', JSON.stringify(req.headers, null, 2));
+  if (req.body && Object.keys(req.body).length > 0) {
+    console.log('📦 Request body:', JSON.stringify(req.body, null, 2));
+  } else {
+    console.log('⚠️  Request body is empty or undefined');
+  }
   next();
 });
 

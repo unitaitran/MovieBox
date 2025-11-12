@@ -4,12 +4,13 @@ const {
   deleteUser,
   getStatistics,
 } = require('../controllers/admin.controller');
-const { protect } = require('../middlewares/auth.middleware');
+const { protect, authorize } = require('../middlewares/auth.middleware');
 
 const router = express.Router();
 
-// All routes require authentication
+// All routes require authentication and admin role
 router.use(protect);
+router.use(authorize('admin'));
 
 // Admin routes
 router.get('/users', getAllUsers);

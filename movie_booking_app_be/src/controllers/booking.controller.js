@@ -1,8 +1,6 @@
 const Booking = require('../models/Booking');
 const Movie = require('../models/Movie');
 const Cinema = require('../models/Cinema');
-const Room = require('../models/Room');
-const Seat = require('../models/Seat');
 const Showtime = require('../models/Showtime');
 const User = require('../models/User');
 const { sendSuccessResponse, sendErrorResponse, sendPaginatedResponse, paginate } = require('../utils/response');
@@ -22,7 +20,6 @@ const getUserBookings = async (req, res, next) => {
     const bookings = await Booking.find(filter)
       .populate('movie', 'title poster duration')
       .populate('cinema', 'name address')
-      .populate('room', 'name room_number screen_type sound_system')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limitNum);
@@ -43,8 +40,7 @@ const getBooking = async (req, res, next) => {
     const booking = await Booking.findById(req.params.id)
       .populate('user', 'fullName email phone')
       .populate('movie', 'title poster duration genre rating')
-      .populate('cinema', 'name address contact')
-      .populate('room', 'name room_number screen_type sound_system');
+      .populate('cinema', 'name address contact');
 
     if (!booking) {
       return sendErrorResponse(res, 'Booking not found', 404);
@@ -108,12 +104,47 @@ const createBooking = async (req, res, next) => {
     }
 
     // Validate room exists (if roomId provided)
+    // Note: rooms are subdocuments within Cinema, not separate collection
     let room = null;
-    if (actualRoomId) {
-      room = await Room.findById(actualRoomId);
-      if (!room) {
-        return sendErrorResponse(res, 'Room not found', 404);
+    if (actualRoomId && actualCinemaId) {
+      const cinemaWithRoom = await Cinema.findOne({
+        _id: actualCinemaId,
+        'rooms._id': actualRoomId
+      });
+      
+      if (!cinemaWithRoom) {
+        return sendErrorResponse(res, 'Room not found in this cinema', 404);
       }
+      
+      room = cinemaWithRoom.rooms.find(r => r._id === actualRoomId);
+    }
+
+    // 🔒 Check if any seat is already booked (concurrent booking check)
+    const seatNumbers = seats.map(s => s.seatNumber || s.seat_number);
+    const existingBooking = await Booking.findOne({
+      showtime: {
+        date: showtime.date,
+        time: showtime.time,
+      },
+      seats: {
+        $elemMatch: {
+          seatNumber: { $in: seatNumbers }
+        }
+      },
+      bookingStatus: { $in: ['confirmed', 'pending'] } // Check active bookings
+    });
+
+    if (existingBooking) {
+      const occupiedSeats = existingBooking.seats
+        .filter(s => seatNumbers.includes(s.seatNumber || s.seat_number))
+        .map(s => s.seatNumber || s.seat_number)
+        .join(', ');
+      
+      return sendErrorResponse(
+        res, 
+        `Vị trí ${occupiedSeats} đã được đặt bởi khách hàng khác. Vui lòng chọn vị trí khác!`,
+        409 // Conflict status code
+      );
     }
 
     // Calculate total amount
